@@ -1,134 +1,142 @@
-package dev.geco.gsit.service;
+package dev.geco.gsit.event;
 
 import dev.geco.gsit.GSitMain;
-import dev.geco.gsit.api.event.PlayerPlayerSitEvent;
-import dev.geco.gsit.api.event.PlayerStopPlayerSitEvent;
-import dev.geco.gsit.api.event.PrePlayerPlayerSitEvent;
-import dev.geco.gsit.api.event.PrePlayerStopPlayerSitEvent;
 import dev.geco.gsit.model.StopReason;
+import dev.geco.gsit.service.PlayerSitService;
+import dev.geco.gsit.service.SitService;
+import dev.geco.gsit.model.Seat;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
+import org.bukkit.Material;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
 
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
-
-public class PlayerSitService {
-
-    public static final String PLAYERSIT_ENTITY_TAG = GSitMain.NAME + "_PlayerSitEntity";
+public class PlayerSitEventHandler implements Listener {
 
     private final GSitMain gSitMain;
-    private final int sitEntityStackCount;
-    private final HashMap<UUID, AbstractMap.SimpleImmutableEntry<UUID, Set<UUID>>> bottomToTopStacks = new HashMap<>();
-    private final HashMap<UUID, AbstractMap.SimpleImmutableEntry<UUID, Set<UUID>>> topToBottomStacks = new HashMap<>();
-    private final Set<Player> preventDismountStackPlayers = new HashSet<>();
-    private final HashMap<String, Long> spawnTimes = new HashMap<>();
-    private int playerSitCount = 0;
-    private long playerSitTime = 0;
 
-    public PlayerSitService(GSitMain gSitMain) {
+    public PlayerSitEventHandler(GSitMain gSitMain) {
         this.gSitMain = gSitMain;
-        sitEntityStackCount = gSitMain.getVersionManager().isNewerOrVersion(new int[]{1, 20, 2}) ? 1 : 2;
     }
 
-    public int getSitEntityStackCount() { return sitEntityStackCount; }
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void playerToggleSneakEvent(PlayerToggleSneakEvent event) {
+        Player player = event.getPlayer();
+        if (!event.isSneaking() || player.isFlying()) return;
 
-    public Set<Player> getPreventDismountStackPlayers() { return preventDismountStackPlayers; }
+        SitService sitService = gSitMain.getSitService();
+        PlayerSitService playerSitService = gSitMain.getPlayerSitService();
 
-    public boolean isPlayerInPlayerSitStack(Player player) { return bottomToTopStacks.containsKey(player.getUniqueId()) || topToBottomStacks.containsKey(player.getUniqueId()); }
-
-    public void removeAllPlayerSitStacks() {
-        for(UUID topPlayerUuid : new ArrayList<>(topToBottomStacks.keySet())) {
-            Player topPlayer = Bukkit.getPlayer(topPlayerUuid);
-            if(topPlayer != null) stopPlayerSit(topPlayer, StopReason.PLUGIN, false, true, true);
-        }
-        bottomToTopStacks.clear();
-        topToBottomStacks.clear();
-        preventDismountStackPlayers.clear();
-    }
-
-    public boolean sitOnPlayer(Player player, Player target) {
-        if(!gSitMain.getEntityUtil().isPlayerSitLocationValid(target.getLocation())) return false;
-
-        PrePlayerPlayerSitEvent prePlayerPlayerSitEvent = new PrePlayerPlayerSitEvent(player, target);
-        Bukkit.getPluginManager().callEvent(prePlayerPlayerSitEvent);
-        if(prePlayerPlayerSitEvent.isCancelled()) return false;
-
-        Set<UUID> playerSitEntityIds = gSitMain.getEntityUtil().createPlayerSitEntities(player, target);
-        if(gSitMain.getConfigService().CUSTOM_MESSAGE) gSitMain.getMessageService().sendActionBarMessage(player, "Messages.action-playersit-info");
-        playerSitCount++;
-        bottomToTopStacks.put(target.getUniqueId(), new AbstractMap.SimpleImmutableEntry<>(player.getUniqueId(), playerSitEntityIds));
-        topToBottomStacks.put(player.getUniqueId(), new AbstractMap.SimpleImmutableEntry<>(target.getUniqueId(), playerSitEntityIds));
-        Bukkit.getPluginManager().callEvent(new PlayerPlayerSitEvent(player, target));
-        spawnTimes.put(target.getUniqueId().toString() + player.getUniqueId(), System.nanoTime());
-
-        return true;
-    }
-
-    public boolean stopPlayerSit(Player source, StopReason stopReason) { return stopPlayerSit(source, stopReason, true, true, true); }
-
-    public boolean stopPlayerSit(Player source, StopReason stopReason, boolean removePassengers, boolean removeVehicle, boolean callPreEvent) {
-        AbstractMap.SimpleImmutableEntry<UUID, Set<UUID>> passengers = removePassengers ? bottomToTopStacks.get(source.getUniqueId()) : null;
-        AbstractMap.SimpleImmutableEntry<UUID, Set<UUID>> vehicles = removeVehicle ? topToBottomStacks.get(source.getUniqueId()) : null;
-        if(passengers == null && vehicles == null) return true;
-
-        if(callPreEvent) {
-            PrePlayerStopPlayerSitEvent prePlayerStopPlayerSitEvent = new PrePlayerStopPlayerSitEvent(source, stopReason);
-            Bukkit.getPluginManager().callEvent(prePlayerStopPlayerSitEvent);
-            if(prePlayerStopPlayerSitEvent.isCancelled() && stopReason.isCancellable()) return false;
-        }
-
-        if(passengers != null) {
-            source.eject();
-            bottomToTopStacks.remove(source.getUniqueId());
-            topToBottomStacks.remove(passengers.getKey());
-            for(UUID passenger : passengers.getValue()) {
-                Entity passengerEntity = Bukkit.getEntity(passenger);
-                if(passengerEntity == null) continue;
-                passengerEntity.remove();
-            }
-            String key = source.getUniqueId().toString() + passengers.getKey();
-            Long spawnTime = spawnTimes.get(key);
-            if(spawnTime != null) {
-                playerSitTime += System.nanoTime() - spawnTime;
-                spawnTimes.remove(key);
+        if (sitService.isEntitySitting(player)) {
+            Seat seat = sitService.getSeatByEntity((LivingEntity) player);
+            if (seat != null) {
+                if (seat.getLifetimeInNanoSeconds() < SitService.SNEAK_COOLDOWN_NANOS) {
+                    event.setCancelled(true);
+                    return;
+                }
+                sitService.removeSeat(seat, StopReason.KICKED);
+                return;
             }
         }
 
-        if(vehicles != null) {
-            source.leaveVehicle();
-            topToBottomStacks.remove(source.getUniqueId());
-            bottomToTopStacks.remove(vehicles.getKey());
-            for(UUID vehicle : vehicles.getValue()) {
-                Entity vehicleEntity = Bukkit.getEntity(vehicle);
-                if(vehicleEntity == null) continue;
-                vehicleEntity.remove();
-            }
-            String key = vehicles.getKey().toString() + source.getUniqueId();
-            Long spawnTime = spawnTimes.get(key);
-            if(spawnTime != null) {
-                playerSitTime += System.nanoTime() - spawnTime;
-                spawnTimes.remove(key);
-            }
+        if (!gSitMain.getConfigService().PS_SNEAK_EJECTS
+                || player.getVehicle() == null
+                || gSitMain.getPlayerSitService().getPreventDismountStackPlayers().contains(player)
+                || player.getPassengers().isEmpty()) {
+            return;
         }
 
-        Bukkit.getPluginManager().callEvent(new PlayerStopPlayerSitEvent(source, stopReason));
+        if (player.isFlying()) return;
 
-        return true;
+        playerSitService.stopPlayerSit(player, StopReason.KICKED, true, false, true);
     }
 
-    public int getPlayerSitCount() { return this.playerSitCount; }
-
-    public int getPlayerSitTime() { return Math.toIntExact(this.playerSitTime / 1_000_000_000); }
-
-    public void resetPlayerSitStats() {
-        spawnTimes.clear();
-        playerSitCount = 0;
-        playerSitTime = 0;
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void playerGameModeChangeEvent(PlayerGameModeChangeEvent event) {
+        if (event.getNewGameMode() == GameMode.SPECTATOR)
+            gSitMain.getPlayerSitService().stopPlayerSit(event.getPlayer(), StopReason.GAMEMODE_CHANGE);
     }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void playerDeathEvent(PlayerDeathEvent event) {
+        gSitMain.getPlayerSitService().stopPlayerSit(event.getEntity(), StopReason.DEATH);
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void playerQuitEvent(PlayerQuitEvent event) {
+        gSitMain.getPlayerSitService().stopPlayerSit(event.getPlayer(), StopReason.DISCONNECT);
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void playerTeleportEvent(PlayerTeleportEvent event) {
+        gSitMain.getPlayerSitService().stopPlayerSit(event.getPlayer(), StopReason.TELEPORT);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+    public void entityDamageEvent(EntityDamageEvent event) {
+        if (event.getCause() == EntityDamageEvent.DamageCause.FALL
+                && event.getEntity() instanceof LivingEntity
+                && event.getEntity().getVehicle() != null
+                && event.getEntity().getVehicle().getScoreboardTags().contains(dev.geco.gsit.service.PlayerSitService.PLAYERSIT_ENTITY_TAG)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void playerInteractAtEntityEvent(PlayerInteractAtEntityEvent event) {
+
+        Entity rightClicked = event.getRightClicked();
+        if (!(rightClicked instanceof Player target)) return;
+
+        if (!gSitMain.getConfigService().PS_ALLOW_SIT && !gSitMain.getConfigService().PS_ALLOW_SIT_NPC) return;
+
+        Player player = event.getPlayer();
+        if (!gSitMain.getPermissionService().hasPermission(player, "PlayerSit", "PlayerSit.*")) return;
+
+        if (!gSitMain.getEnvironmentUtil().isEntityInAllowedWorld(player)) return;
+
+        if (gSitMain.getConfigService().PS_EMPTY_HAND_ONLY
+                && player.getInventory().getItemInMainHand().getType() != Material.AIR) return;
+
+        if (!player.isValid() || !target.isValid() || player.isSneaking() || player.getGameMode() == GameMode.SPECTATOR) return;
+
+        if (gSitMain.getConfigService().FEATUREFLAGS.contains("DISABLE_PLAYERSIT_ELYTRA") && player.isGliding()) return;
+
+        if (gSitMain.getCrawlService().isPlayerCrawling(player)) return;
+
+        double distance = gSitMain.getConfigService().PS_MAX_DISTANCE;
+        if (distance > 0d && target.getLocation().add(0, target.getHeight() / 2, 0)
+                .distanceSquared(player.getLocation().clone().add(0, player.getHeight() / 2, 0)) > distance * distance) return;
+
+        if (!gSitMain.getEnvironmentUtil().canUseInLocation(target.getLocation(), player, "playersit")) return;
+
+        if (gSitMain.getPassengerUtil().isEntityInPassengerList(target, player) || gSitMain.getPassengerUtil().isEntityInPassengerList(player, target)) return;
+
+        long amount = gSitMain.getPassengerUtil().getEntityPassengerCount(target) + 1 + gSitMain.getPassengerUtil().getEntityVehicleCount(target) + gSitMain.getPassengerUtil().getEntityPassengerCount(player);
+        if (gSitMain.getConfigService().PS_MAX_STACK > 0 && gSitMain.getConfigService().PS_MAX_STACK <= amount) return;
+
+        Entity highestEntity = gSitMain.getPassengerUtil().getTopEntityPassenger(target);
+        if (!(highestEntity instanceof Player highestPlayer)) return;
+
+        boolean isNPC = isPlayerNPC(highestPlayer);
+        if ((isNPC && !gSitMain.getConfigService().PS_ALLOW_SIT_NPC) || (!isNPC && !gSitMain.getConfigService().PS_ALLOW_SIT)) return;
+
+        if (!gSitMain.getToggleService().canPlayerUsePlayerSit(player.getUniqueId()) || !gSitMain.getToggleService().canPlayerUsePlayerSit(highestPlayer.getUniqueId())) return;
+
+        gSitMain.getPlayerSitService().sitOnPlayer(player, highestPlayer);
+    }
+
+    private boolean isPlayerNPC(Player player) { return !Bukkit.getOnlinePlayers().contains(player); }
 
 }
