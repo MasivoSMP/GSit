@@ -1,11 +1,13 @@
-# [GSit](https://github.com/Gecolay/GSit) - [GPlugin](https://discord.gg/Cy2P4AU)
+# [GSit](https://github.com/gecolay/GSit) - [GPlugin](https://discord.gg/Cy2P4AU)
 
-## Welcome to the repository
+## Overview
 
-This repository contains the GSit project from the GPlugins series!
+This repository contains the GSit project!
 
-- Website: [GSit - Spigot](https://www.spigotmc.org/resources/GSit.62325/)
-- GitHub: [GSit - GitHub](https://github.com/Gecolay/GSit)
+- Download: [GSit - Modrinth](https://modrinth.com/plugin/gsit)
+- Download: [GSit - Spigot](https://www.spigotmc.org/resources/GSit.62325)
+- Download: [GSit - PaperMC Hanger](https://hangar.papermc.io/gecolay/GSit)
+- GitHub: [GSit - GitHub](https://github.com/gecolay/GSit)
 - Discord: [GPlugins - Discord](https://discord.gg/Cy2P4AU)
 
 ## Local development
@@ -14,7 +16,7 @@ This repository contains the GSit project from the GPlugins series!
 
 Clone the repository:
 ```bash
-git clone https://github.com/Gecolay/GSit.git
+git clone https://github.com/gecolay/GSit.git
 ```
 
 ### Build
@@ -25,4 +27,4 @@ The final `GSit-x.x-x.jar` file will be in the [`build/libs`](./build/libs) fold
 
 ## Pull requests
 
-You can create a pull request to submit your code to this repository: [Pull requests](https://github.com/Gecolay/GSit/pulls)
+You can create a pull request to submit your code to this repository: [Pull requests](https://github.com/gecolay/GSit/pulls)

@@ -43,6 +43,7 @@ public class LegacyEntityUtil implements EntityUtil {
     }
 
     @Override
+    @SuppressWarnings("removal")
     public boolean isSitLocationValid(Location location) {
         try {
             org.bukkit.util.Consumer<ArmorStand> armorStandConsumer = (armorStand) -> {
@@ -62,6 +63,7 @@ public class LegacyEntityUtil implements EntityUtil {
     }
 
     @Override
+    @SuppressWarnings("removal")
     public boolean isPlayerSitLocationValid(Location location) {
         try {
             org.bukkit.util.Consumer<AreaEffectCloud> areaEffectCloudConsumer = (areaEffectCloud) -> {
@@ -80,6 +82,7 @@ public class LegacyEntityUtil implements EntityUtil {
     }
 
     @Override
+    @SuppressWarnings("removal")
     public Entity createSeatEntity(Location location, Entity entity, boolean canRotate) {
         try {
             final boolean[] riding = { true };
@@ -110,6 +113,7 @@ public class LegacyEntityUtil implements EntityUtil {
     }
 
     @Override
+    @SuppressWarnings("removal")
     public Set<UUID> createPlayerSitEntities(Player player, Player target) {
         if(player == null || !player.isValid()) return Collections.emptySet();
 

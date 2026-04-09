@@ -47,13 +47,13 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.yaml.snakeyaml.Yaml;
 
 import java.util.Map;
 
 public class GSitMain extends JavaPlugin {
 
     public static final String NAME = "GSit";
-    public static final String RESOURCE_ID = "62325";
 
     private final int BSTATS_RESOURCE_ID = 4914;
     private static GSitMain gSitMain;
@@ -323,10 +323,16 @@ public class GSitMain extends JavaPlugin {
         if(worldGuardLink != null) messageService.sendMessage(sender, "Plugin.plugin-link", "%Link%", Bukkit.getPluginManager().getPlugin("WorldGuard").getName());
     }
 
+    public String getSource() {
+        Map<?, ?> map = (new Yaml()).load(getClassLoader().getResourceAsStream("plugin.yml"));
+        return map.get("source").toString().toLowerCase();
+    }
+
     private void setupBStatsMetric() {
         bStatsMetric = new BStatsMetric(this, BSTATS_RESOURCE_ID);
 
         bStatsMetric.addCustomChart(new BStatsMetric.SimplePie("plugin_language", () -> configService.L_LANG));
+        bStatsMetric.addCustomChart(new BStatsMetric.SimplePie("plugin_source", this::getSource));
         bStatsMetric.addCustomChart(new BStatsMetric.AdvancedPie("minecraft_version_player_amount", () -> Map.of(versionService.getServerVersion(), Bukkit.getOnlinePlayers().size())));
         bStatsMetric.addCustomChart(new BStatsMetric.SingleLineChart("sit_count", () -> sitService.getSitCount()));
         bStatsMetric.addCustomChart(new BStatsMetric.SingleLineChart("sit_time", () -> sitService.getSitTime()));
