@@ -14,6 +14,8 @@ import dev.geco.gsit.cmd.tab.GCrawlTabComplete;
 import dev.geco.gsit.cmd.tab.GSitTabComplete;
 import dev.geco.gsit.event.BlockEventHandler;
 import dev.geco.gsit.event.EntityEventHandler;
+import dev.geco.gsit.event.LegacyPacketHandler;
+import dev.geco.gsit.event.PacketHandler;
 import dev.geco.gsit.event.SitEventHandler;
 import dev.geco.gsit.event.PlayerEventHandler;
 import dev.geco.gsit.event.PlayerSitEventHandler;
@@ -70,6 +72,7 @@ public class GSitMain extends JavaPlugin {
     private CrawlService crawlService;
     private ToggleService toggleService;
     private EntityEventHandler entityEventHandler;
+    private PacketHandler packetHandler;
     private PassengerUtil passengerUtil;
     private EnvironmentUtil environmentUtil;
     private EntityUtil entityUtil;
@@ -109,6 +112,8 @@ public class GSitMain extends JavaPlugin {
     public ToggleService getToggleService() { return toggleService; }
 
     public EntityEventHandler getEntityEventHandler() { return entityEventHandler; }
+
+    public PacketHandler getPacketHandler() { return packetHandler; }
 
     public PassengerUtil getPassengerUtil() { return passengerUtil; }
 
@@ -159,6 +164,7 @@ public class GSitMain extends JavaPlugin {
     public void onEnable() {
         if(!versionCheck()) return;
 
+        packetHandler = versionService.isNewerOrVersion(26, 1) ? (PacketHandler) versionService.getPackageObjectInstance("event.PacketHandler", this) : new LegacyPacketHandler();
         entityUtil = versionService.isNewerOrVersion(1, 18) ? (EntityUtil) versionService.getPackageObjectInstance("util.EntityUtil", this) : new LegacyEntityUtil(this);
 
         loadPluginDependencies();
@@ -185,6 +191,7 @@ public class GSitMain extends JavaPlugin {
     private void loadSettings(CommandSender sender) {
         if(!connectDatabase(sender)) return;
         toggleService.createDataTables();
+        packetHandler.setupPlayerPacketHandlers();
     }
 
     public void reload(CommandSender sender) {
@@ -209,6 +216,7 @@ public class GSitMain extends JavaPlugin {
         playerSitService.removeAllPlayerSitStacks();
         poseService.removeAllPoses();
         crawlService.removeAllCrawls();
+        packetHandler.removePlayerPacketHandlers();
 
         if(placeholderAPILink != null) placeholderAPILink.unregister();
         if(worldGuardLink != null) worldGuardLink.unregisterFlagHandlers();

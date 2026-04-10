@@ -34,7 +34,11 @@ public class PlayerEventHandler implements Listener {
     }
 
     @EventHandler
-    public void playerJoinEvent(PlayerJoinEvent event) { gSitMain.getUpdateService().checkForUpdates(event.getPlayer()); }
+    public void playerJoinEvent(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        gSitMain.getUpdateService().checkForUpdates(player);
+        gSitMain.getPacketHandler().setupPlayerPacketHandler(player);
+    }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void playerQuitEvent(PlayerQuitEvent event) {
@@ -42,6 +46,7 @@ public class PlayerEventHandler implements Listener {
         stopActions(player, StopReason.DISCONNECT, true);
         gSitMain.getToggleService().clearEntitySitToggleCache(player.getUniqueId());
         doubleSneakCrawlPlayers.remove(player);
+        gSitMain.getPacketHandler().removePlayerPacketHandler(player);
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
