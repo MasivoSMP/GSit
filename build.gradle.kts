@@ -67,7 +67,7 @@ tasks {
     }
 
     val sources = mapOf(
-        "unknown" to mapOf("website" to "https://github.com/gecolay/GSit"),
+        "dev" to mapOf("website" to "https://github.com/gecolay/GSit"),
         "github" to mapOf("website" to "https://github.com/gecolay/GSit"),
         "modrinth" to mapOf("website" to "https://modrinth.com/plugin/gsit"),
         "spigot" to mapOf("website" to "https://www.spigotmc.org/resources/GSit.62325"),
@@ -101,7 +101,7 @@ tasks {
             dependsOn(resourceTask)
 
             archiveClassifier.set("")
-            destinationDirectory.set(layout.buildDirectory.dir(if (sourceName == "unknown") "libs" else "libs/$sourceName"))
+            destinationDirectory.set(layout.buildDirectory.dir(if (sourceName == "dev") "libs" else "libs/$sourceName"))
 
             from(sourceSets.main.get().output)
             from(resourceTask)
