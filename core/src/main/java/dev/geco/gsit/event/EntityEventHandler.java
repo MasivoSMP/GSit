@@ -11,24 +11,46 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 
+import java.lang.reflect.InvocationTargetException;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class EntityEventHandler {
 
     private final GSitMain gSitMain;
+    private final Set<UUID> teleportingPlayers = ConcurrentHashMap.newKeySet();
 
     public EntityEventHandler(GSitMain gSitMain) {
         this.gSitMain = gSitMain;
+    }
+
+    public void markPlayerTeleporting(Player player) {
+        teleportingPlayers.add(player.getUniqueId());
+    }
+
+    public void clearPlayerTeleporting(Player player) {
+        teleportingPlayers.remove(player.getUniqueId());
     }
 
     public void handleEntityDismountEvent(Cancellable event, Entity entity, Entity dismounted) {
         if(!(entity instanceof Player player)) return;
 
         Seat seat = gSitMain.getSitService().getSeatByEntity(player);
+        if(seat != null && isExternalDismount(event, player)) {
+            gSitMain.getSitService().removeSeat(seat, StopReason.TELEPORT, false);
+            return;
+        }
         if(seat != null && (!gSitMain.getConfigService().GET_UP_SNEAK || (!gSitMain.getSitService().removeSeat(seat, StopReason.GET_UP, true)))) {
             event.setCancelled(true);
             return;
         }
 
         Pose pose = gSitMain.getPoseService().getPoseByPlayer(player);
+        if(pose != null && isExternalDismount(event, player)) {
+            gSitMain.getPoseService().removePose(pose, StopReason.TELEPORT, false);
+            return;
+        }
         if(pose != null && (!gSitMain.getConfigService().GET_UP_SNEAK || !gSitMain.getPoseService().removePose(pose, StopReason.GET_UP, true))) {
             event.setCancelled(true);
             return;
@@ -53,6 +75,19 @@ public class EntityEventHandler {
         if(gSitMain.getConfigService().PS_BOTTOM_RETURN && player.isValid()) gSitMain.getEntityUtil().setEntityLocation(player, bottom.getLocation());
 
         gSitMain.getPlayerSitService().stopPlayerSit(player, StopReason.GET_UP, false, true, false);
+    }
+
+    private boolean isExternalDismount(Cancellable event, Player player) {
+        return teleportingPlayers.contains(player.getUniqueId()) || !player.isSneaking() || !isDismountCancellable(event);
+    }
+
+    private boolean isDismountCancellable(Cancellable event) {
+        try {
+            Object result = event.getClass().getMethod("isCancellable").invoke(event);
+            return !(result instanceof Boolean cancellable) || cancellable;
+        } catch(NoSuchMethodException | IllegalAccessException | InvocationTargetException | SecurityException ignored) {
+            return true;
+        }
     }
 
 }

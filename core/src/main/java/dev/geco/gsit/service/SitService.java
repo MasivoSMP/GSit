@@ -19,6 +19,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -159,7 +160,10 @@ public class SitService {
         returnLocation.setPitch(entityLocation.getPitch());
 
         if(entity.isValid()) {
-            if(gSitMain.isFoliaServer()) gSitMain.getTaskService().run(() -> gSitMain.getEntityUtil().setEntityLocation(entity, returnLocation), entity);
+            if(gSitMain.isFoliaServer()) gSitMain.getTaskService().run(() -> {
+                if(entity instanceof Player) entity.teleportAsync(returnLocation, PlayerTeleportEvent.TeleportCause.PLUGIN);
+                else gSitMain.getEntityUtil().setEntityLocation(entity, returnLocation);
+            }, entity);
             else gSitMain.getEntityUtil().setEntityLocation(entity, returnLocation);
         }
         if(seat.getSeatEntity().isValid() && !gSitMain.getVersionManager().isNewerOrVersion(1, 17)) gSitMain.getEntityUtil().setEntityLocation(seat.getSeatEntity(), returnLocation);

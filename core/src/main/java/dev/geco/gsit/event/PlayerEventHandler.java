@@ -50,7 +50,12 @@ public class PlayerEventHandler implements Listener {
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    public void playerTeleportEvent(PlayerTeleportEvent event) { stopActions(event.getPlayer(), StopReason.TELEPORT, false); }
+    public void playerTeleportEvent(PlayerTeleportEvent event) {
+        Player player = event.getPlayer();
+        gSitMain.getEntityEventHandler().markPlayerTeleporting(player);
+        stopActions(player, StopReason.TELEPORT, false);
+        gSitMain.getTaskService().runDelayed(() -> gSitMain.getEntityEventHandler().clearPlayerTeleporting(player), 2);
+    }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void playerDeathEvent(PlayerDeathEvent event) { stopActions(event.getEntity(), StopReason.DEATH, false); }

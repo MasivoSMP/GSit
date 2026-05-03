@@ -41,10 +41,11 @@ public class TaskService {
         if(!gSitMain.isEnabled()) return taskId;
         if(gSitMain.supportsTaskFeature()) {
             if(entity != null) {
-                tasks.put(taskId, entity.getScheduler().run(gSitMain, scheduledTask -> {
+                ScheduledTask task = entity.getScheduler().run(gSitMain, scheduledTask -> {
                     runnable.run();
                     tasks.remove(taskId);
-                }, null));
+                }, null);
+                if(task != null) tasks.put(taskId, task);
                 return taskId;
             }
             ScheduledTask task;
@@ -93,10 +94,11 @@ public class TaskService {
         if(gSitMain.supportsTaskFeature()) {
             if(ticks <= 0) return run(runnable, sync, entity);
             if(entity != null) {
-                tasks.put(taskId, entity.getScheduler().runDelayed(gSitMain, scheduledTask -> {
+                ScheduledTask task = entity.getScheduler().runDelayed(gSitMain, scheduledTask -> {
                     runnable.run();
                     tasks.remove(taskId);
-                }, null, ticks));
+                }, null, ticks);
+                if(task != null) tasks.put(taskId, task);
                 return taskId;
             }
             ScheduledTask task;
@@ -144,7 +146,8 @@ public class TaskService {
         if(!gSitMain.isEnabled()) return taskId;
         if(gSitMain.supportsTaskFeature()) {
             if(entity != null) {
-                tasks.put(taskId, entity.getScheduler().runAtFixedRate(gSitMain, scheduledTask -> { runnable.run(); }, null, delayTicks <= 0 ? 1 : delayTicks, ticks <= 0 ? 1 : ticks));
+                ScheduledTask task = entity.getScheduler().runAtFixedRate(gSitMain, scheduledTask -> { runnable.run(); }, null, delayTicks <= 0 ? 1 : delayTicks, ticks <= 0 ? 1 : ticks);
+                if(task != null) tasks.put(taskId, task);
                 return taskId;
             }
             ScheduledTask task;
